@@ -25,5 +25,8 @@ class ImageProvider : public QQuickImageProvider
     QImage requestImage(const QString &id, QSize *size, const QSize &requestedSize) override;
 
   private:
+    /*!
+     * \brief The image to be requested
+     */
     QSharedPointer<QImage> m_image;
 };

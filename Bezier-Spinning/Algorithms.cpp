@@ -1,22 +1,25 @@
 #include <QMatrix2x2>
 #include <QVector3D>
 #include <QPainter>
+#include <QtConcurrent/QtConcurrent>
 #include <QtMath>
 #include <QRect>
+#include <numeric>
+#include <vector>
 
 #include "Algorithms.h"
 
 void Naive(QImage& dest, const QSharedPointer<QImage>& sour, const float& theta, const int& offset)
 {
     QImage temp = Sour2Dest(dest.size(), *sour, offset);
-    const QSize& size = dest.size();
     const float sin = qSin(theta);
     const float cos = qCos(theta);
 
-    // can be parallelized
-    for (int x = 0; x < size.width(); x++)
-    {
-        for (int y = 0; y < size.height(); y++)
+    std::vector<int> xs(dest.width());
+    std::iota(begin(xs), end(xs), 0);
+
+    QtConcurrent::blockingMap(xs, [&dest, &sour, &temp, &cos, &sin](const int& x) {
+        for (int y = 0; y < temp.height(); y++)
         {
             int X = x - sour->width();
             int Y = y - sour->height();
@@ -24,7 +27,7 @@ void Naive(QImage& dest, const QSharedPointer<QImage>& sour, const float& theta,
             float sy = cos * Y - sin * X;
             X = sx + sour->width();
             Y = sy + sour->height();
-            if (X >= 0 && X < size.width() && Y >= 0 && Y < size.height())
+            if (X >= 0 && X < dest.width() && Y >= 0 && Y < dest.height())
             {
                 dest.setPixelColor(x, y, temp.pixelColor(X, Y));
             }
@@ -33,47 +36,47 @@ void Naive(QImage& dest, const QSharedPointer<QImage>& sour, const float& theta,
                 dest.setPixelColor(x, y, QColor(0, 0, 0, 0));
             }
         }
-    }
+    });
 }
 
 void Shear(QImage& dest, const QSharedPointer<QImage>& sour, const float& theta, const int& offset)
 {
     QImage temp = Sour2Dest(dest.size(), *sour, offset);
 
+    std::vector<int> is(dest.width());
+    std::iota(begin(is), end(is), 0);
+
     float phi = theta;
     if (theta >= 3 * M_PI / 2) {
         phi = theta - 3 * M_PI / 2;
-        TurnImage_270(dest, temp);
+        TurnImage_270(dest, temp, is);
     }
     else if (theta >= M_PI)
     {
         phi = theta - M_PI;
-        TurnImage_180(dest, temp);
+        TurnImage_180(dest, temp, is);
     }
     else if (theta >= M_PI / 2)
     {
         phi = theta - M_PI / 2;
-        TurnImage_90(dest, temp);
+        TurnImage_90(dest, temp, is);
     }
-    dest = temp;
 
     const float sin = qSin(phi);
     const float tan = -qTan(phi / 2);
 
-    ShearX(dest, temp, tan);
-    ShearY(temp, dest, sin);
-    ShearX(dest, temp, tan);
+    ShearX(dest, temp, tan, is);
+    ShearY(temp, dest, sin, is);
+    ShearX(dest, temp, tan, is);
 }
 
-// any outer loop can be parallelized
-
-void ShearX(QImage& dest, QImage& sour, const float& lamda)
+void ShearX(QImage& dest, QImage& sour, const float& lambda, const std::vector<int>& ys)
 {
     const QSize& size = dest.size();
     dest.fill(QColor(0, 0, 0, 0));
-    for (int y = 0; y < size.height(); y++)
-    {
-        const float ly = lamda * (y - sour.height() / 2);
+
+    QtConcurrent::blockingMap(ys, [&dest, &sour, &lambda, &size](const int& y) {
+        const float ly = lambda * (y - sour.height() / 2);
         const int dx = qFloor(ly);
         const float f = ly - dx;
 
@@ -111,16 +114,16 @@ void ShearX(QImage& dest, QImage& sour, const float& lamda)
         {
             dest.setPixelColor(newX, y, sour.pixelColor(size.width() - 1, y));
         }
-    }
+    });
 }
 
-void ShearY(QImage& dest, QImage& sour, const float& lamda)
+void ShearY(QImage& dest, QImage& sour, const float& lambda, const std::vector<int>& xs)
 {
     const QSize& size = dest.size();
     dest.fill(QColor(0, 0, 0, 0));
-    for (int x = 0; x < size.width(); x++)
-    {
-        const float lx = lamda * (x - sour.width() / 2);
+
+    QtConcurrent::blockingMap(xs, [&dest, &sour, &lambda, &size](const int& x) {
+        const float lx = lambda * (x - sour.width() / 2);
         const int dy = qFloor(lx);
         const float f = lx - dy;
 
@@ -158,65 +161,61 @@ void ShearY(QImage& dest, QImage& sour, const float& lamda)
         {
             dest.setPixelColor(x, newY, sour.pixelColor(x, size.height() - 1));
         }
-    }
+    });
 }
 
-void TurnImage_90(QImage& dest, QImage& sour)
+void TurnImage_90(QImage& dest, QImage& sour, const std::vector<int>& xs)
 {
-    const QSize& destSize = dest.size();
-    for (int x = 0; x < destSize.width(); x++)
-    {
-        for (int y = 0; y < destSize.height(); y++)
+    QtConcurrent::blockingMap(xs, [&dest, &sour](const int& x) {
+        for (int y = 0; y < dest.height(); y++)
         {
             dest.setPixelColor(x, y, sour.pixelColor(x, sour.height() - 1 - y));
         }
-    }
-    for (int x = 0; x < destSize.width(); x++)
-    {
-        for (int y = 0; y < destSize.height(); y++)
+    });
+    QtConcurrent::blockingMap(xs, [&dest, &sour](const int& x) {
+        for (int y = 0; y < sour.height(); y++)
         {
             sour.setPixelColor(x, y, dest.pixelColor(y, x));
         }
-    }
+    });
+
+    dest = sour;
 }
 
-void TurnImage_180(QImage& dest, QImage& sour)
+void TurnImage_180(QImage& dest, QImage& sour, const std::vector<int>& xs)
 {
-    const QSize& destSize = dest.size();
-    for (int x = 0; x < destSize.width(); x++)
-    {
-        for (int y = 0; y < destSize.height(); y++)
+    QtConcurrent::blockingMap(xs, [&dest, &sour](const int& x) {
+        for (int y = 0; y < dest.height(); y++)
         {
             dest.setPixelColor(x, y, sour.pixelColor(x, sour.height() - 1 - y));
-
         }
-    }
-    for (int x = 0; x < destSize.width(); x++)
-    {
-        for (int y = 0; y < destSize.height(); y++)
+    });
+    QtConcurrent::blockingMap(xs, [&dest, &sour](const int& x) {
+        for (int y = 0; y < sour.height(); y++)
         {
             sour.setPixelColor(x, y, dest.pixelColor(dest.width() - 1 - x, y));
         }
-    }
+    });
+
+    dest = sour;
 }
 
-void TurnImage_270(QImage& dest, QImage& sour)
+void TurnImage_270(QImage& dest, QImage& sour, const std::vector<int>& xs)
 {
-    const QSize& destSize = dest.size();
-    for (int x = 0; x < destSize.width(); x++)
-    {
-        for (int y = 0; y < destSize.height(); y++)
+    QtConcurrent::blockingMap(xs, [&dest, &sour](const int& x) {
+        for (int y = 0; y < dest.height(); y++)
         {
             dest.setPixelColor(x, y, sour.pixelColor(y, x));
         }
-    }
-    for (int x = 0; x < destSize.width(); x++)
-    {
-        for (int y = 0; y < destSize.height(); y++)
+    });
+    QtConcurrent::blockingMap(xs, [&dest, &sour](const int& x) {
+        for (int y = 0; y < sour.height(); y++)
         {
             sour.setPixelColor(x, y, dest.pixelColor(x, dest.height() - 1 - y));
         }
-    }
+    });
+
+    dest = sour;
 }
 
 QImage Sour2Dest(const QSize& size, const QImage& sour, const int& offset)
