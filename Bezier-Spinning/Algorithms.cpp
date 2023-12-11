@@ -1,7 +1,7 @@
-#include <QtMath>
-#include <QVector3D>
 #include <QMatrix2x2>
+#include <QVector3D>
 #include <QPainter>
+#include <QtMath>
 #include <QRect>
 
 #include "Algorithms.h"
@@ -13,6 +13,7 @@ void Naive(QImage& dest, const QSharedPointer<QImage>& sour, const float& theta,
     const float sin = qSin(theta);
     const float cos = qCos(theta);
 
+    // can be parallelized
     for (int x = 0; x < size.width(); x++)
     {
         for (int y = 0; y < size.height(); y++)
@@ -63,6 +64,8 @@ void Shear(QImage& dest, const QSharedPointer<QImage>& sour, const float& theta,
     ShearY(temp, dest, sin);
     ShearX(dest, temp, tan);
 }
+
+// any outer loop can be parallelized
 
 void ShearX(QImage& dest, QImage& sour, const float& lamda)
 {

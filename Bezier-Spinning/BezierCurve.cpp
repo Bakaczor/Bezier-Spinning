@@ -1,5 +1,7 @@
+#include <QtConcurrent/QtConcurrent>
 #include <QRandomGenerator>
 #include <QVector2D>
+#include <iterator>
 
 #include "BezierCurve.h"
 
@@ -16,13 +18,13 @@ void BezierCurve::generate(int count)
     m_cpCount = count;
     m_selectIdx = -1;
 
-    m_controlPoints.reserve(m_cpCount);
-    for (int i = 0; i < m_cpCount; i++)
-    {
+    m_controlPoints = QList<QPoint>(m_cpCount);
+    QtConcurrent::blockingMap(m_controlPoints, [this](const QPoint& p) {
+        std::ptrdiff_t i = std::distance(&m_controlPoints.at(0), &p);
         int x = QRandomGenerator::global()->bounded(0, m_size.width());
         int y = QRandomGenerator::global()->bounded(0, m_size.height());
-        m_controlPoints.append(QPoint(x, y));
-    }
+        m_controlPoints[i] = QPoint(x, y);
+    });
 
     calculateCurve();
     if (m_i > m_points.count() - 1)
@@ -35,15 +37,13 @@ void BezierCurve::generate(int count)
 void BezierCurve::select(const int& x, const int& y)
 {
     m_selectIdx = -1;
-
-    for (int i = 0; i < m_controlPoints.count(); i++)
-    {
-        if (compare(x, y, m_controlPoints.at(i).x(), m_controlPoints.at(i).y()))
+    QtConcurrent::blockingMap(m_controlPoints, [this, &x, &y](const QPoint& p) {
+        std::ptrdiff_t i = std::distance(&m_controlPoints.at(0), &p);
+        if (compare(x, y, p.x(), p.y()))
         {
             m_selectIdx = i;
-            break;
         }
-    }
+    });
 }
 
 void BezierCurve::drag(const int& x, const int& y)
@@ -135,10 +135,17 @@ void BezierCurve::calculateCurve()
         return row.at(i) * qPow(t, i) * qPow(1 - t, n - i);
     };
 
-    m_points.reserve(tCount);
-    float t = 0.0f;
-    while (t <= 1.0f)
+    QList<float> ts(tCount);
+    ts[0] = 0.0f;
+    for (int i = 1; i < tCount; i++)
     {
+        ts[i] = ts[i - 1] + step;
+    }
+
+    m_points = QList<QPoint>(tCount);
+    QtConcurrent::blockingMap(m_points, [this, &ts, &n, &B](const QPoint& p) {
+        std::ptrdiff_t i = std::distance(&m_points.at(0), &p);
+        const float& t = ts.at(i);
         float X = 0.0f;
         float Y = 0.0f;
         for (int j = 0; j <= n; j++)
@@ -147,9 +154,8 @@ void BezierCurve::calculateCurve()
             X += m_controlPoints.at(j).x() * res;
             Y += m_controlPoints.at(j).y() * res;
         }
-        m_points.append(QPoint(X, Y));
-        t += step;
-    }
+        m_points[i] = QPoint(X, Y);
+    });
 }
 
 int BezierCurve::getCount() const

@@ -1,7 +1,7 @@
-#include <QElapsedTimer>
-#include <QThread>
-#include <QEventLoop>
 #include <QApplication>
+#include <QElapsedTimer>
+#include <QEventLoop>
+#include <QThread>
 
 #include "SceneManager.h"
 #include "Algorithms.h"
@@ -86,7 +86,8 @@ void SceneManager::generate(QString count)
     }
     if (state != QValidator::State::Acceptable || validated < 3 || validated > 20)
     {
-        QMessageBox::warning(nullptr, tr("Warning"), tr("The number of the points is invalid.\n" "Please enter a number between 3 and 20."));
+        QMessageBox::warning(nullptr, tr("Warning"), tr("The number of the points is invalid.\n"
+                                                        "Please enter a number between 3 and 20."));
         return;
     }
     m_curve.generate(validated);
@@ -107,6 +108,8 @@ void SceneManager::load()
     else
     {
         *image = QImage(m_imageSize, QImage::Format_ARGB32);
+        image->fill(m_white);
+        m_loaded = false;
     }
     emit imageChanged();
     paint();

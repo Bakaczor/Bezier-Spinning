@@ -1,4 +1,4 @@
-QT += quick core gui widgets
+QT += quick core gui widgets concurrent
 
 SOURCES += \
         Algorithms.cpp \
