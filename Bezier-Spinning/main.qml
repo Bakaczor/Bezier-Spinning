@@ -86,7 +86,7 @@ ApplicationWindow {
 
                         Row {
                             focus: false
-                            spacing: 10
+                            spacing: 7
                             Image {
                                 id: image
                                 width: 100
@@ -100,13 +100,25 @@ ApplicationWindow {
                                     image.source = oldSource;
                                 }
                             }
-                            Button {
-                                text: "Load"
-                                height: 25
-                                width: 50
-                                y: parent.y + parent.height / 2 - 10
-                                onClicked: {
-                                    SceneManager.load();
+                            Column {
+                                focus: false
+                                spacing: 7
+                                y: parent.y + parent.height / 4
+                                Button {
+                                    text: "Load"
+                                    height: 25
+                                    width: 55
+                                    onClicked: {
+                                        SceneManager.load();
+                                    }
+                                }
+                                Button {
+                                    text: "Create"
+                                    height: 25
+                                    width: 55
+                                    onClicked: {
+                                        SceneManager.create();
+                                    }
                                 }
                             }
                         }

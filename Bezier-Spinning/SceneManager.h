@@ -91,6 +91,9 @@ class SceneManager : public QObject
      */
     void load();
 
+    // new functionality
+    void create();
+
   signals:
     void sceneChanged();
     void imageChanged();
@@ -163,4 +166,7 @@ class SceneManager : public QObject
      * \param theta The angle
      */
     void draw(const QPoint& p, const float& theta);
+
+    // new functionality
+    QColor HSV2RGB(const float& hue, const float& saturation, const float& value);
 };
